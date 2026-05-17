@@ -1,0 +1,152 @@
+import database
+import gleam/dict
+import gleam/erlang/atom
+import gleam/erlang/process
+import gleam/io
+import gleam/json
+import gleam/list
+import gleam/result
+import gleam/string
+import mist
+import webproxy_server/auth
+import webproxy_server/cluster
+
+pub opaque type PendingResource {
+  PendingResource(user_id: String, resource_name: String)
+}
+
+pub fn new_pending_resources_queue() -> database.Table(PendingResource) {
+  atom.create("pending_resources_table")
+  |> database.create_ets_table()
+}
+
+fn add_pending_resource_to_queue(
+  queue: database.Table(PendingResource),
+  user_id: String,
+  resource_name: String,
+) -> Result(String, database.TransactionError(Nil)) {
+  use ref <- database.transaction(queue)
+  database.insert(ref, PendingResource(user_id:, resource_name:))
+}
+
+pub type WsState {
+  Unreacheable
+  Unauthorized(ip_address: String)
+  Authorized(user_id: String, cluster_id: String, scopes: List(String))
+}
+
+pub fn ping(conn: mist.WebsocketConnection, state: WsState) {
+  let _ = mist.send_text_frame(conn, "pong")
+  mist.continue(state)
+}
+
+pub fn subscribe(
+  users: database.Table(auth.User),
+  clusters: database.Table(cluster.Cluster),
+  ip_address: String,
+  auth_token: String,
+  connection: mist.WebsocketConnection,
+) -> mist.Next(WsState, a) {
+  let check = {
+    use user <- result.try(auth.get_user_by_auth_token(users, auth_token))
+
+    use cluster_id <- result.try(cluster.join_cluster(
+      clusters,
+      user,
+      ip_address,
+      connection,
+    ))
+
+    io.println("User '" <> user.display_name <> "' successfully subscribed.")
+    Ok(Authorized(user.id, cluster_id, user.scopes))
+  }
+  let _ = mist.send_text_frame(connection, "subscribed")
+  result.unwrap(check, Unauthorized(ip_address))
+  |> mist.continue
+}
+
+pub fn require(
+  clusters: database.Table(cluster.Cluster),
+  pending_resources: database.Table(PendingResource),
+  cluster_id: String,
+  user_id: String,
+  scopes: List(String),
+  resource_name: String,
+) {
+  let peers =
+    cluster.get_connected_peers(clusters, cluster_id, user_id)
+    |> dict.values()
+
+  case
+    add_pending_resource_to_queue(pending_resources, user_id, resource_name)
+  {
+    Ok(resource_id) -> {
+      let petition =
+        json.object([
+          #("resourceId", json.string(resource_id)),
+          #("scopes", json.array(scopes, of: json.string)),
+          #("resourceName", json.string(resource_name)),
+        ])
+        |> json.to_string()
+      let petition = "/require " <> petition
+      list.each(peers, fn(peer) { mist.send_text_frame(peer, petition) })
+      process.spawn(fn() {
+        process.sleep(300)
+        remove_pending_resource_from_queue(pending_resources, resource_id)
+      })
+      Nil
+    }
+    Error(_) -> Nil
+  }
+
+  mist.continue(Authorized(user_id:, scopes:, cluster_id:))
+}
+
+fn remove_pending_resource_from_queue(
+  queue: database.Table(PendingResource),
+  resource_id: String,
+) {
+  use ref <- database.transaction(queue)
+  database.delete(ref, resource_id)
+}
+
+pub fn provide(
+  clusters: database.Table(cluster.Cluster),
+  pending_resources: database.Table(PendingResource),
+  cluster_id: String,
+  user_id: String,
+  scopes: List(String),
+  data: String,
+) {
+  case string.split_once(data, " ") {
+    Ok(#(resource_id, response_json)) -> {
+      let _ = {
+        use ref <- database.transaction(pending_resources)
+        case database.find(ref, resource_id) {
+          Ok(pending_resource) -> {
+            let _ = database.delete(ref, resource_id)
+            let peers =
+              cluster.get_connected_peers(clusters, cluster_id, user_id)
+            case dict.get(peers, pending_resource.user_id) {
+              Ok(conn) -> {
+                let _ =
+                  mist.send_text_frame(
+                    conn,
+                    "/provide "
+                      <> pending_resource.resource_name
+                      <> " "
+                      <> response_json,
+                  )
+                Ok(Nil)
+              }
+              Error(_) -> Ok(Nil)
+            }
+          }
+          Error(_) -> Ok(Nil)
+        }
+      }
+      mist.continue(Authorized(user_id:, scopes:, cluster_id:))
+    }
+    _ -> mist.stop()
+  }
+}
