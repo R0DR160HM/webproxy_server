@@ -91,7 +91,7 @@ pub fn require(
       let petition = "/require " <> petition
       list.each(peers, fn(peer) { mist.send_text_frame(peer, petition) })
       process.spawn(fn() {
-        process.sleep(300)
+        process.sleep(400)
         remove_pending_resource_from_queue(pending_resources, resource_id)
       })
       Nil

@@ -53,12 +53,12 @@ fn handle_ws_message(
     _, Unreacheable -> mist.stop()
     mist.Text("ping"), _ -> engine.ping(conn, state)
 
-    mist.Text("/subscribe " <> auth_token), Unauthorized(address) ->
+    mist.Text("/s " <> auth_token), Unauthorized(address) ->
       engine.subscribe(db.users, db.clusters, address, auth_token, conn)
 
     _, Unauthorized(_) -> mist.continue(state)
 
-    mist.Text("/require " <> resource_name),
+    mist.Text("/r " <> resource_name),
       Authorized(user_id:, scopes:, cluster_id:)
     ->
       engine.require(
@@ -70,7 +70,7 @@ fn handle_ws_message(
         resource_name,
       )
 
-    mist.Text("/provide " <> data), Authorized(user_id:, scopes:, cluster_id:)
+    mist.Text("/p " <> data), Authorized(user_id:, scopes:, cluster_id:)
     ->
       engine.provide(
         db.clusters,
