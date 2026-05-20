@@ -117,7 +117,7 @@ pub fn provide(
   user_id: String,
   scopes: List(String),
   data: String,
-) {
+) -> mist.Next(WsState, a) {
   case string.split_once(data, " ") {
     Ok(#(resource_id, response_json)) -> {
       let _ = {
@@ -131,12 +131,12 @@ pub fn provide(
               Ok(conn) -> {
                 let _ =
                   mist.send_text_frame(
-                    conn,
-                    "/provide "
-                      <> pending_resource.resource_name
-                      <> " "
-                      <> response_json,
-                  )
+                  conn,
+                  "/provide "
+                    <> pending_resource.resource_name
+                    <> " "
+                    <> response_json,
+                )
                 Ok(Nil)
               }
               Error(_) -> Ok(Nil)

@@ -1,3 +1,5 @@
+import gleam/bit_array
+import gleam/crypto
 import database
 import envoy
 import gleam/dynamic/decode
@@ -5,14 +7,15 @@ import gleam/erlang/atom
 import gleam/http/request
 import gleam/httpc
 import gleam/json
+import gleam/result
 
 pub type User {
   User(
-    id: String,
-    display_name: String,
-    scopes: List(String),
-    organization_id: String,
-  )
+  id: String,
+  display_name: String,
+  scopes: List(String),
+  organization_id: String,
+)
 }
 
 fn json_to_user_decoder() -> decode.Decoder(User) {
@@ -32,35 +35,35 @@ pub fn get_user_by_auth_token(
   cache: database.Table(User),
   token: String,
 ) -> Result(User, Nil) {
+  let hashed_bit_array = bit_array.from_string(token) |> crypto.hash(crypto.Sha256, _)
+  use hashed_token <- result.try(bit_array.to_string(hashed_bit_array))
+
   let query_result = {
     use ref <- database.transaction(cache)
-    database.find(ref, token)
+    database.find(ref, hashed_token)
   }
-  case query_result {
-    Ok(user) -> Ok(user)
-    Error(_) -> {
-      let assert Ok(base_req) = request.to(get_authentication_url())
-      let req =
-        request.prepend_header(base_req, "accept", "application/json")
-        |> request.prepend_header("authorization", token)
+  use _ <- result.try_recover(query_result)
 
-      case httpc.send(req) {
-        Ok(resp) if resp.status == 200 -> {
-          case json.parse(resp.body, json_to_user_decoder()) {
-            Error(_) -> Error(Nil)
-            Ok(user) -> {
-              let _ = {
-                use ref <- database.transaction(cache)
-                database.upsert(ref, token, user)
-              }
-              Ok(user)
-            }
-          }
-        }
-        _ -> Error(Nil)
+  let req = prepare_auth_request(token)
+
+  case httpc.send(req) {
+    Ok(resp) if resp.status == 200 -> {
+      use user <- result.try(result.replace_error(json.parse(resp.body, json_to_user_decoder()), Nil))
+      let _query = {
+        use ref <- database.transaction(cache)
+        database.upsert(ref, hashed_token, user)
       }
-    }
+      Ok(user)
+    } 
+    _ -> Error(Nil)
   }
+
+}
+
+fn prepare_auth_request(token: String) {
+  let assert Ok(base_req) = request.to(get_authentication_url())
+  request.prepend_header(base_req, "accept", "application/json")
+  |> request.prepend_header("authorization", token)
 }
 
 fn get_authentication_url() {
