@@ -8,7 +8,6 @@ import webproxy_server/cluster
 import webproxy_server/engine.{
   type WsState, Authorized, Unauthorized, Unreacheable,
 }
-import webproxy_server/ottimizza
 import webproxy_server/web
 
 pub type Database {
@@ -24,7 +23,6 @@ pub fn handle_request(
   db: Database,
 ) -> response.Response(mist.ResponseData) {
   case request.path_segments(request) {
-    ["auth_relay"] -> ottimizza.authenticate(request)
     ["health"] -> web.health()
     ["ws"] ->
       mist.websocket(
