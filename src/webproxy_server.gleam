@@ -1,8 +1,5 @@
-import envoy
 import gleam/erlang/process
-import gleam/int
 import gleam/io
-import gleam/result
 import mist
 import webproxy_server/auth
 import webproxy_server/cluster
@@ -11,8 +8,6 @@ import webproxy_server/router
 
 pub fn main() -> Nil {
   io.println("Starting server...")
-
-  let port = get_port()
 
   let users = auth.new_user_table()
   let clusters = cluster.new_clusters_table()
@@ -23,16 +18,9 @@ pub fn main() -> Nil {
     router.handle_request(_, db)
     |> mist.new
     |> mist.bind("0.0.0.0")
-    |> mist.port(port)
+    |> mist.port(8080)
     |> mist.start
 
-  io.println("Server started at port " <> int.to_string(port))
-
+  io.println("Server started at port 8080")
   process.sleep_forever()
-}
-
-fn get_port() -> Int {
-  envoy.get("PORT")
-  |> result.try(int.parse)
-  |> result.unwrap(8080)
 }

@@ -117,7 +117,7 @@ pub fn provide(
   user_id: String,
   scopes: List(String),
   data: String,
-) {
+) -> mist.Next(WsState, a) {
   case string.split_once(data, " ") {
     Ok(#(resource_id, response_json)) -> {
       let _ = {

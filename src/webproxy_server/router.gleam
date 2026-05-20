@@ -70,8 +70,7 @@ fn handle_ws_message(
         resource_name,
       )
 
-    mist.Text("/p " <> data), Authorized(user_id:, scopes:, cluster_id:)
-    ->
+    mist.Text("/p " <> data), Authorized(user_id:, scopes:, cluster_id:) ->
       engine.provide(
         db.clusters,
         db.pending_resources,
