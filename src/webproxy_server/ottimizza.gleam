@@ -26,7 +26,7 @@ pub fn authenticate(req: Request(body)) -> Response(ResponseData) {
     Error(Nil) -> web.unauthorized()
     Ok(auth_token) -> {
       let assert Ok(url) = envoy.get("OAUTH_BASE_URL")
-      let assert Ok(req) = request.to(url <> "/oauth/userinfo")
+      let assert Ok(req) = request.to(url)
       let req =
         request.prepend_header(req, "Accept", "application/json")
         |> request.prepend_header("Authorizatin", auth_token)
