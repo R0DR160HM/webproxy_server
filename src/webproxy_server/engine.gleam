@@ -131,12 +131,12 @@ pub fn provide(
               Ok(conn) -> {
                 let _ =
                   mist.send_text_frame(
-                  conn,
-                  "/provide "
-                    <> pending_resource.resource_name
-                    <> " "
-                    <> response_json,
-                )
+                    conn,
+                    "/provide "
+                      <> pending_resource.resource_name
+                      <> " "
+                      <> response_json,
+                  )
                 Ok(Nil)
               }
               Error(_) -> Ok(Nil)

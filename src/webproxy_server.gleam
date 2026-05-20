@@ -9,7 +9,6 @@ import webproxy_server/router
 pub fn main() -> Nil {
   io.println("Starting server...")
 
-
   let users = auth.new_user_table()
   let clusters = cluster.new_clusters_table()
   let pending_resources = engine.new_pending_resources_queue()
@@ -22,8 +21,6 @@ pub fn main() -> Nil {
     |> mist.port(8080)
     |> mist.start
 
-  io.println("Server started at port 8080") 
-
+  io.println("Server started at port 8080")
   process.sleep_forever()
 }
-

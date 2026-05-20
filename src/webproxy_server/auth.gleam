@@ -1,7 +1,7 @@
-import gleam/bit_array
-import gleam/crypto
 import database
 import envoy
+import gleam/bit_array
+import gleam/crypto
 import gleam/dynamic/decode
 import gleam/erlang/atom
 import gleam/http/request
@@ -11,11 +11,11 @@ import gleam/result
 
 pub type User {
   User(
-  id: String,
-  display_name: String,
-  scopes: List(String),
-  organization_id: String,
-)
+    id: String,
+    display_name: String,
+    scopes: List(String),
+    organization_id: String,
+  )
 }
 
 fn json_to_user_decoder() -> decode.Decoder(User) {
@@ -35,7 +35,8 @@ pub fn get_user_by_auth_token(
   cache: database.Table(User),
   token: String,
 ) -> Result(User, Nil) {
-  let hashed_bit_array = bit_array.from_string(token) |> crypto.hash(crypto.Sha256, _)
+  let hashed_bit_array =
+    bit_array.from_string(token) |> crypto.hash(crypto.Sha256, _)
   use hashed_token <- result.try(bit_array.to_string(hashed_bit_array))
 
   let query_result = {
@@ -48,16 +49,18 @@ pub fn get_user_by_auth_token(
 
   case httpc.send(req) {
     Ok(resp) if resp.status == 200 -> {
-      use user <- result.try(result.replace_error(json.parse(resp.body, json_to_user_decoder()), Nil))
+      use user <- result.try(result.replace_error(
+        json.parse(resp.body, json_to_user_decoder()),
+        Nil,
+      ))
       let _query = {
         use ref <- database.transaction(cache)
         database.upsert(ref, hashed_token, user)
       }
       Ok(user)
-    } 
+    }
     _ -> Error(Nil)
   }
-
 }
 
 fn prepare_auth_request(token: String) {
@@ -67,7 +70,8 @@ fn prepare_auth_request(token: String) {
 }
 
 fn get_authentication_url() {
-  let assert Ok("https://" <> url) = envoy.get("AUTHENTICATION_URL") as "Please, inform a valid AUTHENTICATION_URL environment variable according to the documentation."
+  let assert Ok("https://" <> url) = envoy.get("AUTHENTICATION_URL")
+    as "Please, inform a valid AUTHENTICATION_URL environment variable according to the documentation."
 
   "https://" <> url
 }
