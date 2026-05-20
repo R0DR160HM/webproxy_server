@@ -23,6 +23,7 @@ pub fn handle_request(
   db: Database,
 ) -> response.Response(mist.ResponseData) {
   case request.path_segments(request) {
+    ["health"] -> web.health()
     ["ws"] ->
       mist.websocket(
         request:,
