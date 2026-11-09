@@ -8,6 +8,7 @@ import webproxy_server/auth
 import webproxy_server/cluster
 import webproxy_server/engine
 import webproxy_server/intervention
+import webproxy_server/visual
 import webproxy_server/web
 import webproxy_server/ws.{Authorized, Intervention, Unauthorized, Unreacheable}
 
@@ -16,6 +17,8 @@ pub type Database {
     users: database.Table(auth.User),
     clusters: database.Table(cluster.Cluster),
     pending_resources: database.Table(engine.PendingResource),
+    /// Per-boot secret used to anonymize the ids published by `/info/visual`.
+    anonymization_key: BitArray,
   )
 }
 
@@ -25,6 +28,8 @@ pub fn handle_request(
 ) -> response.Response(mist.ResponseData) {
   case request.path_segments(request) {
     ["health"] -> web.health()
+    ["info", "visual"] -> visual.page()
+    ["info", "visual", "data"] -> visual.data(db.clusters, db.anonymization_key)
     ["ws"] ->
       mist.websocket(
         request:,

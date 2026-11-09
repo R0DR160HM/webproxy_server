@@ -1,4 +1,5 @@
 import database
+import gleam/crypto
 import gleam/erlang/process
 import gleam/int
 import gleam/io
@@ -21,7 +22,9 @@ pub fn main() -> Nil {
   let users = auth.new_user_table()
   let clusters = cluster.new_clusters_table()
   let pending_resources = engine.new_pending_resources_queue()
-  let db = router.Database(users:, clusters:, pending_resources:)
+  let anonymization_key = crypto.strong_random_bytes(32)
+  let db =
+    router.Database(users:, clusters:, pending_resources:, anonymization_key:)
 
   let port = environment.port()
 
