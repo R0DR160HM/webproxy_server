@@ -1,0 +1,47 @@
+import ./auth
+import ./database
+import ./engine
+import ./environment
+import ./router
+import ./ws
+
+proc main(): void {
+	echo "Starting server..."
+
+	administratorIps := environment.authorizedAdministratorIps()
+	warnAboutAuthorizedAdministratorIps(administratorIps)
+
+	// ponytail: sixteen databases for the clusters, one for each first digit a
+	// cluster id can have; see `database.shard` before asking for more.
+	store := database.openStore(16)
+	ctx := ws.Context(store, ws.startRegistry(), environment.authenticationUrl(), administratorIps, environment.useNativeConnectionIp())
+
+	async startGarbageCollector(store.users)
+	async startPendingResourceSweeper(store)
+
+	port := environment.port()
+	echo "Server started at port {port}"
+	net.httpWsServe(port, router.handleRequest, router.handleConnection(ctx, _))
+}
+
+proc startGarbageCollector(db: sql.SqlConnection): void {
+	for ; true; {
+		task.sleep(3_600_000)
+		auth.deleteOldUsers(db)
+	}
+}
+
+proc startPendingResourceSweeper(store: database.Store): void {
+	for ; true; {
+		task.sleep(5_000)
+		engine.removeExpiredPendingResources(store)
+	}
+}
+
+// Emits a warning at boot when `AUTHORIZED_ADMINISTRATOR_IPS` contains the
+// wildcard `"*"`, which allows any IP address to upgrade to intervention mode.
+func warnAboutAuthorizedAdministratorIps(administratorIps: Str[dyn]): void {
+	if indexOf(administratorIps, "*") is Result.Ok(_) {
+		term.status("WARNING: AUTHORIZED_ADMINISTRATOR_IPS contains \"*\", so connections from any IP address are allowed to upgrade to intervention mode. This may be dangerous.")
+	}
+}

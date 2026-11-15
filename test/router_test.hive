@@ -1,0 +1,28 @@
+import ../src/router
+
+func request(headers: Table): net.HttpRequest {
+	return net.HttpRequest("GET", "/ws", headers, "")
+}
+
+test "the health check and the websocket are the only paths" {
+	assert router.handleRequest(net.HttpRequest("GET", "/health", [], "")).status == 200
+	assert router.handleRequest(net.HttpRequest("GET", "/health", [], "")).body == "\{\"status\":\"UP\"}"
+	// 101 is what hands the request over to the websocket handler.
+	assert router.handleRequest(net.HttpRequest("GET", "/ws", [], "")).status == 101
+	assert router.handleRequest(net.HttpRequest("GET", "/ws/?token=abc", [], "")).status == 101
+	assert router.handleRequest(net.HttpRequest("GET", "/", [], "")).status == 404
+	assert router.handleRequest(net.HttpRequest("GET", "/ws/else", [], "")).body == "Not Found"
+}
+
+test "behind a proxy the IP comes from its headers, forwarded-for first" {
+	both := request([["X-Real-Ip", "198.51.100.2"], ["X-Forwarded-For", "198.51.100.1"]])
+	assert router.resolveIpAddress(both, "10.0.0.1:4711", false) == "198.51.100.1"
+	assert router.resolveIpAddress(request([["X-Real-Ip", "198.51.100.2"]]), "10.0.0.1:4711", false) == "198.51.100.2"
+}
+
+test "without headers, or when told to, the IP is the connection's own" {
+	forwarded := request([["X-Forwarded-For", "198.51.100.1"]])
+	assert router.resolveIpAddress(request([]), "203.0.113.9:4711", false) == "203.0.113.9"
+	assert router.resolveIpAddress(forwarded, "203.0.113.9:4711", true) == "203.0.113.9"
+	assert router.resolveIpAddress(forwarded, "[2001:db8::1]:4711", true) == "2001:db8::1"
+}
