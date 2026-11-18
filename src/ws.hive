@@ -13,6 +13,13 @@ type WsState {
 	Unauthorized { ipAddress: Str }
 	Authorized { user: auth.User, clusterId: Str, ipAddress: Str }
 	Intervention { user: auth.User }
+
+	// Only a SysAdmin ever reaches intervention mode.
+	law interventionIsSysAdmin(s: WsState) {
+		if s is WsState.Intervention(user) {
+			assert user is auth.User.SysAdmin
+		}
+	}
 }
 
 // What handling one message decides: carry on in a state, or hang up.

@@ -7,6 +7,10 @@ type User {
 	organizationId: Str
 	createdAt: Float
 
+	law identified(u: User) {
+		assert u.id != "" && u.organizationId != ""
+	}
+
 	User
 	SysAdmin
 }
@@ -18,6 +22,12 @@ type AuthenticatedUser {
 	scopes: Str[dyn]
 	organizationId: Str -- JSON as organization_id;
 	isAdmin: Bool
+
+	// The cluster id is made of the organization, so a user without one
+	// would share a cluster with every other such user behind the same IP.
+	law identified(u: AuthenticatedUser) {
+		assert u.id != "" && u.organizationId != ""
+	}
 }
 
 // How a user is stored: SQLite holds scalars only, so the scopes are JSON.
@@ -27,6 +37,10 @@ type UserRow {
 	scopes: Str
 	organizationId: Str
 	createdAt: Float
+
+	law identified(r: UserRow) {
+		assert r.id != "" && r.organizationId != ""
+	}
 }
 
 query selectUser(token: Str): UserRow[dyn] {

@@ -48,6 +48,10 @@ query createSchema(): void {
 type Store {
 	users: sql.SqlConnection
 	clusters: sql.SqlConnection[dyn]
+
+	law hasClusterDatabases(s: Store) {
+		assert len(s.clusters) > 0
+	}
 }
 
 // Opens the users' database and `shards` more for the clusters.
@@ -55,6 +59,9 @@ func openStore(shards: Int): Store {
 	mut sql.SqlConnection[dyn] clusters = []
 	for i := 0; i < shards; i++ {
 		append(clusters, open())
+	}
+	if len(clusters) == 0 {
+		panic "A store needs at least one database for its clusters."
 	}
 	return Store(open(), clusters)
 }
@@ -65,9 +72,6 @@ func openStore(shards: Int): Store {
 // read a second digit if a machine has more cores than that to give SQLite.
 func shard(store: Store, clusterId: Str): sql.SqlConnection {
 	clusters := store.clusters
-	if len(clusters) == 0 {
-		panic "The store was opened without a database for its clusters."
-	}
 	mut digit := 0
 	if clusterId bounds 0 && indexOf("0123456789abcdef", clusterId[0]) is Result.Ok(found) {
 		digit = found
