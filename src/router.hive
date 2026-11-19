@@ -42,7 +42,7 @@ proc serve(ctx: ws.Context, conn: net.WsConnection, ipAddress: Str): void {
 		async connections(ws.Registry.Register(connId, outbox))
 
 		mut ws.WsState state = ws.WsState.Unauthorized(ipAddress)
-		for ; true; {
+		for ;; {
 			if net.wsReceive(conn) is Result.Ok(message) && handleWsMessage(ctx, connId, conn, state, message) is ws.Next.Continue(next) {
 				state = next
 			} else {

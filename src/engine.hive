@@ -125,11 +125,36 @@ func upgrade(user: auth.User, ipAddress: Str, administratorIps: Str[dyn], conn: 
 }
 
 func ipIsAuthorizedAdministrator(authorized: Str[dyn], ipAddress: Str): Bool {
-	return indexOf(authorized, "*") is Result.Ok(_) || indexOf(authorized, ipAddress) is Result.Ok(_)
+	for each allowed in authorized {
+		if allowed == "*" || allowed == ipAddress {
+			return true
+		}
+	}
+	return false
 }
 
 func onClose(store: database.Store, state: ws.WsState): void {
 	if state is ws.WsState.Authorized(user, clusterId, _) {
 		cluster.leaveCluster(store, clusterId, user.id)
+	}
+}
+
+law nobodyIsAuthorizedByAnEmptyList(ip: Str) {
+	Str[dyn] none = []
+	assert !ipIsAuthorizedAdministrator(none, ip)
+}
+
+law theWildcardAuthorizesEveryone(ips: Str[dyn], ip: Str) {
+	if ips is ["*", ..._] {
+		assert ipIsAuthorizedAdministrator(ips, ip)
+	}
+}
+
+law anUnlistedIpIsRefused(ips: Str[dyn], ip: Str) {
+	if ips is [first, ...rest] {
+		anUnlistedIpIsRefused(rest, ip)
+		if first != "*" && first != ip && !ipIsAuthorizedAdministrator(rest, ip) {
+			assert !ipIsAuthorizedAdministrator(ips, ip)
+		}
 	}
 }

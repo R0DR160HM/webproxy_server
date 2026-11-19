@@ -25,14 +25,14 @@ proc main(): void {
 }
 
 proc startGarbageCollector(db: sql.SqlConnection): void {
-	for ; true; {
+	for ;; {
 		task.sleep(3_600_000)
 		auth.deleteOldUsers(db)
 	}
 }
 
 proc startPendingResourceSweeper(store: database.Store): void {
-	for ; true; {
+	for ;; {
 		task.sleep(5_000)
 		engine.removeExpiredPendingResources(store)
 	}

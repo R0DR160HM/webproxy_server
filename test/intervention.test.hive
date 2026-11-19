@@ -11,6 +11,9 @@ query allDisplayNames(): Str[dyn] {
 }
 
 func insertUser(db: sql.SqlConnection, token: Str, id: Str, displayName: Str): void {
+	if id == "" {
+		panic "A test user needs an id."
+	}
 	auth.storeUser(db, token, auth.User.User(id, displayName, [], "org", 0.0))
 }
 

@@ -17,7 +17,7 @@ jobs:
           go-version: stable
       # The compiler the Dockerfile builds with.
       - run: |
-          curl -fsSL https://github.com/R0DR160HM/hive-lang/releases/download/v0.3.8/hivec-linux-amd64 -o /usr/local/bin/hive
+          curl -fsSL https://github.com/R0DR160HM/hive-lang/releases/download/v0.4.1/hivec-linux-amd64 -o /usr/local/bin/hive
           chmod +x /usr/local/bin/hive
       - run: hive check src/main.hive
       - run: hive test test
